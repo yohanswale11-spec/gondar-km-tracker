@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>የተስተካከለ ኪሎ ሜትር መለኪያ</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #eceff1; padding: 20px; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
+        #distance { font-size: 60px; color: #1a73e8; font-weight: bold; margin: 10px 0; }
+        .unit { font-size: 20px; color: #5f6368; margin-bottom: 20px; }
+        button { width: 100%; padding: 15px; font-size: 18px; border: none; border-radius: 10px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        .start { background: #34a853; color: white; }
+        .stop { background: #ea4335; color: white; }
+        .status-box { margin-top: 20px; padding: 10px; border-radius: 8px; font-size: 13px; background: #f8f9fa; color: #70757a; }
+        #accuracy { color: #f9ab00; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div style="font-size: 18px; color: #202124;">ጠቅላላ የጉዞ ርቀት</div>
+    <div id="distance">0.000</div>
+    <div class="unit">ኪሎ ሜትር (KM)</div>
+    
+    <button class="start" id="startBtn">መለካት ጀምር</button>
+    <button class="stop" id="stopBtn">አቁም / መጀመሪያ መልስ</button>
+    
+    <div class="status-box">
+        <div id="status">ለመጀመር "ጀምር"ን ይጫኑ</div>
+        <div id="accuracy">ሲግናል፡ በመፈለግ ላይ...</div>
+    </div>
+</div>
+
+<script>
+    let watchId = null;
+    let totalDistance = 0;
+    let lastCoords = null;
+
+    const distanceDisplay = document.getElementById('distance');
+    const statusDisplay = document.getElementById('status');
+    const accuracyDisplay = document.getElementById('accuracy');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; 
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; 
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (navigator.geolocation) {
+            startBtn.disabled = true;
+            startBtn.style.opacity = "0.5";
+            statusDisplay.innerText = "GPS በርቷል - ተንቀሳቀስ...";
+            
+            watchId = navigator.geolocation.watchPosition((position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                
+                accuracyDisplay.innerText = `የሲግናል ጥራት፡ ${accuracy.toFixed(0)} ሜትር`;
+
+                // ሲግናሉ በጣም ደካማ ካልሆነ (ከ 60 ሜትር በላይ ካልሆነ) ተቀበለው
+                if (accuracy > 60) return;
+
+                if (lastCoords) {
+                    const dist = calculateDistance(
+                        lastCoords.latitude, lastCoords.longitude,
+                        latitude, longitude
+                    );
+
+                    // ቢያንስ 2 ሜትር (0.002 KM) ከተራመድክ ርቀቱን ጨምር
+                    if (dist > 0.002) {
+                        totalDistance += dist;
+                        // 3 ዲጂት እንዲያሳይ (ለምሳሌ 0.095)
+                        distanceDisplay.innerText = totalDistance.toFixed(3);
+                        lastCoords = { latitude, longitude };
+                    }
+                } else {
+                    lastCoords = { latitude, longitude };
+                }
+            }, (error) => {
+                statusDisplay.innerText = "ስህተት፡ GPS መከፈቱን አረጋግጥ";
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 0
+            });
+        }
+    });
+
+    stopBtn.addEventListener('click', () => {
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        totalDistance = 0;
+        lastCoords = null;
+        distanceDisplay.innerText = "0.000";
+        startBtn.disabled = false;
+        startBtn.style.opacity = "1";
+        statusDisplay.innerText = "ቆሟል / ተሰርዟል";
+        accuracyDisplay.innerText = "ሲግናል፡ በመፈለግ ላይ...";
+    });
+</script>
+
+</body>
+</html>
