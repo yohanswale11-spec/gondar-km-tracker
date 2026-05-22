@@ -1,4 +1,0 @@
-=json
-"scripts": {
-  "start": "node server.js"
-},
